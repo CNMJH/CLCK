@@ -70,6 +70,14 @@
                 </label>
                 <input type="file" id="importInput" accept=".json" class="hidden">
             </div>
+            <div class="flex justify-center gap-3 mt-5">
+                <button id="uploadCloudBtn" class="btn btn-secondary">
+                    <i class="fa fa-cloud-upload mr-2"></i>上传云端
+                </button>
+                <button id="loadCloudBtn" class="btn btn-secondary">
+                    <i class="fa fa-cloud-download mr-2"></i>加载云端
+                </button>
+            </div>
             
             <div class="text-center">
                 <h1 class="text-[clamp(2rem,5vw,3.5rem)] font-bold text-dark mb-2">
@@ -124,6 +132,29 @@
                 <i class="fa fa-film text-6xl mb-4 opacity-30"></i>
                 <p class="text-xl">还没有添加任何视频，点击右上角按钮添加第一个吧~</p>
             </div>
+        </div>
+    </div>
+
+    <!-- 首次访问提醒弹窗 -->
+    <div id="firstVisitModal" class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 m-4 text-center">
+            <i class="fa fa-cloud-download text-primary text-5xl mb-4"></i>
+            <h2 class="text-xl font-bold text-dark mb-3">记得先加载云端！不是CL请忽略</h2>
+            <div class="flex gap-3 mt-5">
+                <button id="dismissFirstVisitBtn" class="btn btn-secondary flex-1">暂不加载</button>
+                <button id="firstVisitLoadBtn" class="btn btn-primary flex-1">立即加载云端</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 云端版本选择弹窗 -->
+    <div id="cloudVersionsModal" class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 m-4 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-dark">选择云端版本</h2>
+                <button id="closeCloudVersionsBtn" class="text-gray-500 hover:text-gray-700"><i class="fa fa-times text-xl"></i></button>
+            </div>
+            <div id="cloudVersionsList" class="space-y-3"></div>
         </div>
     </div>
 
@@ -271,6 +302,14 @@
         const editTagSelector = document.getElementById('editTagSelector');
         const exportBtn = document.getElementById('exportBtn');
         const importInput = document.getElementById('importInput');
+        const uploadCloudBtn = document.getElementById('uploadCloudBtn');
+        const loadCloudBtn = document.getElementById('loadCloudBtn');
+        const firstVisitModal = document.getElementById('firstVisitModal');
+        const dismissFirstVisitBtn = document.getElementById('dismissFirstVisitBtn');
+        const firstVisitLoadBtn = document.getElementById('firstVisitLoadBtn');
+        const cloudVersionsModal = document.getElementById('cloudVersionsModal');
+        const closeCloudVersionsBtn = document.getElementById('closeCloudVersionsBtn');
+        const cloudVersionsList = document.getElementById('cloudVersionsList');
 
         // 打开上传弹窗
         openUploadModalBtn.addEventListener('click', () => {
@@ -718,6 +757,131 @@
             alert('标签保存成功！');
         });
 
+        function askAdminPassword() {
+            const password = prompt('请输入管理员密码：');
+            return password === null ? null : password.trim();
+        }
+
+        function getDeviceName() {
+            const platform = navigator.userAgentData?.platform || navigator.platform || '未知设备';
+            return `${platform} · ${navigator.userAgent.includes('Mobile') ? '手机' : '电脑'}`;
+        }
+
+        async function cloudRequest(password, query = '', options = {}) {
+            const response = await fetch(`/api/cloud-data${query}`, {
+                ...options,
+                headers: {
+                    ...(options.headers || {}),
+                    'Authorization': `Bearer ${password}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            let result = {};
+            try { result = await response.json(); } catch (_) {}
+            if (!response.ok) throw new Error(result.error || `请求失败（${response.status}）`);
+            return result;
+        }
+
+        async function uploadToCloud() {
+            const password = askAdminPassword();
+            if (!password) return;
+            if (!confirm(`确定上传当前本地数据吗？\n\n视频：${videos.length} 个\n标签：${tags.length} 个\n\n上传会新增一个历史版本，不会覆盖旧版本。`)) return;
+
+            uploadCloudBtn.disabled = true;
+            uploadCloudBtn.textContent = '上传中...';
+            try {
+                const result = await cloudRequest(password, '', {
+                    method: 'PUT',
+                    body: JSON.stringify({ data: { videos, tags }, deviceName: getDeviceName() })
+                });
+                alert(result.duplicate ? '云端已有完全相同的数据，没有重复保存。' : '上传成功！已创建新的云端历史版本。');
+            } catch (error) {
+                alert(`上传失败：${error.message}`);
+            } finally {
+                uploadCloudBtn.disabled = false;
+                uploadCloudBtn.innerHTML = '<i class="fa fa-cloud-upload mr-2"></i>上传云端';
+            }
+        }
+
+        function escapeCloudText(value) {
+            const div = document.createElement('div');
+            div.textContent = value || '';
+            return div.innerHTML;
+        }
+
+        async function showCloudVersions(password) {
+            const result = await cloudRequest(password, '?action=list');
+            const backups = result.backups || [];
+            if (!backups.length) {
+                alert('云端还没有备份，请先在有数据的设备点击“上传云端”。');
+                return;
+            }
+
+            cloudVersionsList.innerHTML = backups.map((backup, index) => `
+                <button class="cloud-version-btn w-full text-left border rounded-lg p-4 hover:border-primary hover:bg-blue-50 transition" data-id="${backup.id}">
+                    <div class="font-semibold text-gray-900">${index === 0 ? '最新版本 · ' : ''}${new Date(backup.createdAt + 'Z').toLocaleString('zh-CN')}</div>
+                    <div class="text-sm text-gray-600 mt-1">${backup.videoCount} 个视频 · ${backup.tagCount} 个标签${backup.deviceName ? ` · ${escapeCloudText(backup.deviceName)}` : ''}</div>
+                </button>
+            `).join('');
+
+            cloudVersionsList.querySelectorAll('.cloud-version-btn').forEach(button => {
+                button.addEventListener('click', () => loadCloudVersion(password, button.dataset.id));
+            });
+            cloudVersionsModal.classList.remove('hidden');
+        }
+
+        async function loadFromCloud() {
+            const password = askAdminPassword();
+            if (!password) return;
+            loadCloudBtn.disabled = true;
+            loadCloudBtn.textContent = '读取中...';
+            try {
+                await showCloudVersions(password);
+            } catch (error) {
+                alert(`读取失败：${error.message}`);
+            } finally {
+                loadCloudBtn.disabled = false;
+                loadCloudBtn.innerHTML = '<i class="fa fa-cloud-download mr-2"></i>加载云端';
+            }
+        }
+
+        async function loadCloudVersion(password, id) {
+            if (!confirm('加载云端数据会替换当前浏览器中的视频和标签。\n\n系统会先在本地保存一份“加载前备份”，是否继续？')) return;
+            try {
+                localStorage.setItem('animationBeforeCloudLoad', JSON.stringify({ videos, tags, backupTime: new Date().toISOString() }));
+                const result = await cloudRequest(password, `?id=${encodeURIComponent(id)}`);
+                const data = result.data;
+                if (!data || !Array.isArray(data.videos) || !Array.isArray(data.tags)) throw new Error('云端版本格式无效');
+                videos = data.videos;
+                tags = data.tags;
+                saveToLocalStorage();
+                saveTagsToLocalStorage();
+                currentFilterTag = 'all';
+                currentSearchKeyword = '';
+                searchInput.value = '';
+                renderVideos();
+                renderTags();
+                cloudVersionsModal.classList.add('hidden');
+                firstVisitModal.classList.add('hidden');
+                localStorage.setItem('clckCloudReminderSeen', '1');
+                alert('云端数据加载成功！');
+            } catch (error) {
+                alert(`加载失败：${error.message}`);
+            }
+        }
+
+        uploadCloudBtn.addEventListener('click', uploadToCloud);
+        loadCloudBtn.addEventListener('click', loadFromCloud);
+        closeCloudVersionsBtn.addEventListener('click', () => cloudVersionsModal.classList.add('hidden'));
+        dismissFirstVisitBtn.addEventListener('click', () => {
+            localStorage.setItem('clckCloudReminderSeen', '1');
+            firstVisitModal.classList.add('hidden');
+        });
+        firstVisitLoadBtn.addEventListener('click', async () => {
+            firstVisitModal.classList.add('hidden');
+            await loadFromCloud();
+        });
+
         // 导出数据
         exportBtn.addEventListener('click', () => {
             const data = {
@@ -780,6 +944,9 @@
         document.addEventListener('DOMContentLoaded', () => {
             renderVideos();
             renderTags();
+            if (!localStorage.getItem('clckCloudReminderSeen')) {
+                firstVisitModal.classList.remove('hidden');
+            }
         });
     </script>
 </body>

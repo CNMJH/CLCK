@@ -8,5 +8,12 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "clshujuk",
+      "database_id": "4c47ba25-7d77-426c-91f1-737c0e7a5638"
+    }
+  ]
 }
