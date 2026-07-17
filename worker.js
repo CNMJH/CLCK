@@ -27,10 +27,11 @@ function constantTimeEqual(a, b) {
   return difference === 0;
 }
 
-function isAuthorized(request, env) {
+function getAuthorizationStatus(request, env) {
+  if (!env.ADMIN_PASSWORD) return 'not_configured';
   const auth = request.headers.get('authorization') || '';
   const password = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  return Boolean(env.ADMIN_PASSWORD) && constantTimeEqual(password, env.ADMIN_PASSWORD);
+  return constantTimeEqual(password, env.ADMIN_PASSWORD) ? 'authorized' : 'invalid';
 }
 
 async function ensureSchema(db) {
@@ -123,7 +124,9 @@ async function getBackup(url, env) {
 }
 
 async function handleCloudData(request, env) {
-  if (!isAuthorized(request, env)) return jsonError('管理员密码错误', 401);
+  const authStatus = getAuthorizationStatus(request, env);
+  if (authStatus === 'not_configured') return jsonError('Cloudflare 尚未配置 ADMIN_PASSWORD', 503);
+  if (authStatus !== 'authorized') return jsonError('管理员密码错误', 401);
   await ensureSchema(env.DB);
 
   const url = new URL(request.url);
