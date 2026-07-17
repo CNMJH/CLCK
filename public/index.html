@@ -314,13 +314,68 @@
             return bvMatch ? 'BV' + bvMatch[1] : null;
         }
 
-        // 通过本站的 Cloudflare Worker 获取并缓存 B 站封面，避免依赖第三方解析站
+        // 与旧项目一致：浏览器使用 JSONP 调用 B 站接口获取封面地址
         function getBilibiliThumbnailUrl(bvid) {
-            return `/api/bilibili-cover?bvid=${encodeURIComponent(bvid)}`;
+            return new Promise((resolve) => {
+                if (!bvid) {
+                    resolve(null);
+                    return;
+                }
+
+                const callbackName = `bilibiliCover_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                const script = document.createElement('script');
+                let finished = false;
+
+                const cleanup = () => {
+                    if (script.parentNode) script.parentNode.removeChild(script);
+                    delete window[callbackName];
+                };
+
+                const finish = (value) => {
+                    if (finished) return;
+                    finished = true;
+                    cleanup();
+                    resolve(value);
+                };
+
+                window[callbackName] = (data) => {
+                    let pic = data && data.data && data.data.pic;
+                    if (pic && pic.startsWith('http://')) pic = `https://${pic.slice(7)}`;
+                    finish(pic ? `${pic}@320w_180h.jpg` : null);
+                };
+
+                script.src = `https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}&jsonp=jsonp&callback=${callbackName}`;
+                script.onerror = () => finish(null);
+                document.head.appendChild(script);
+                setTimeout(() => finish(null), 10000);
+            });
         }
 
-        // 封面获取失败时显示内置占位图，不影响卡片链接及其他功能
-        function handleCoverError(img) {
+        // 与旧项目一致：通过 weserv 图片代理显示，避免 B 站图片防盗链
+        function getDisplayCoverUrl(cover) {
+            if (!cover) return '';
+            if (cover.startsWith('data:')) return cover;
+            if (!/^https?:\/\//i.test(cover)) return cover;
+            return `https://images.weserv.nl/?url=${encodeURIComponent(cover.replace(/^http:\/\//i, 'https://'))}`;
+        }
+
+        // 若旧数据仍保存的是失效接口，则现场重新解析并更新本地数据
+        async function handleCoverError(img, bvid, videoId) {
+            if (img.dataset.recovering === '1') return;
+            img.dataset.recovering = '1';
+
+            const cover = await getBilibiliThumbnailUrl(bvid);
+            if (cover) {
+                const video = videos.find(item => item.id === videoId);
+                if (video) {
+                    video.cover = cover;
+                    saveToLocalStorage();
+                }
+                img.dataset.recovering = '0';
+                img.src = getDisplayCoverUrl(cover);
+                return;
+            }
+
             img.onerror = null;
             img.src = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='360' viewBox='0 0 640 360'%3E%3Crect width='640' height='360' fill='%23e5e7eb'/%3E%3Ctext x='320' y='190' text-anchor='middle' fill='%236b7280' font-size='24'%3E封面暂时无法加载%3C/text%3E%3C/svg%3E";
         }
@@ -398,7 +453,11 @@
             }
 
             // 自动获取B站官方封面，100%不会出现无关图片
-            const cover = getBilibiliThumbnailUrl(bvid);
+            const cover = await getBilibiliThumbnailUrl(bvid);
+            if (!cover) {
+                alert('封面获取失败，请稍后重试');
+                return;
+            }
 
             // 创建新视频对象
             const newVideo = {
@@ -458,7 +517,7 @@
             cardContainer.innerHTML = filteredVideos.map(video => `
                 <div class="bg-white rounded-xl shadow-md overflow-hidden card-hover group">
                     <a href="${video.url}" target="_blank" class="block relative aspect-video overflow-hidden">
-                        <img src="${video.bvid ? getBilibiliThumbnailUrl(video.bvid) : video.cover}" alt="${video.title}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" referrerpolicy="no-referrer" loading="lazy" onerror="handleCoverError(this)">
+                        <img src="${getDisplayCoverUrl(video.cover)}" alt="${video.title}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" referrerpolicy="no-referrer" loading="lazy" onerror="handleCoverError(this, '${video.bvid || ''}', '${video.id}')">
                         <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                             <i class="fa fa-play-circle text-white text-4xl"></i>
                         </div>
