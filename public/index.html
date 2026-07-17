@@ -785,7 +785,7 @@
             if (!confirm(`确定上传当前本地数据吗？\n\n视频：${videos.length} 个\n标签：${tags.length} 个\n\n上传会新增一个历史版本，不会覆盖旧版本。`)) return;
 
             uploadCloudBtn.disabled = true;
-            uploadCloudBtn.textContent = '上传中...';
+            uploadCloudBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
             try {
                 const result = await cloudRequest(password, '', {
                     method: 'PUT',
@@ -796,7 +796,7 @@
                 alert(`上传失败：${error.message}`);
             } finally {
                 uploadCloudBtn.disabled = false;
-                uploadCloudBtn.innerHTML = '<i class="fa fa-cloud-upload mr-2"></i>上传云端';
+                uploadCloudBtn.innerHTML = '<i class="fa fa-cloud-upload"></i>';
             }
         }
 
@@ -831,14 +831,14 @@
             const password = askAdminPassword();
             if (!password) return;
             loadCloudBtn.disabled = true;
-            loadCloudBtn.textContent = '读取中...';
+            loadCloudBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
             try {
                 await showCloudVersions(password);
             } catch (error) {
                 alert(`读取失败：${error.message}`);
             } finally {
                 loadCloudBtn.disabled = false;
-                loadCloudBtn.innerHTML = '<i class="fa fa-cloud-download mr-2"></i>加载云端';
+                loadCloudBtn.innerHTML = '<i class="fa fa-cloud-download"></i>';
             }
         }
 
