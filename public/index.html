@@ -70,15 +70,6 @@
                 </label>
                 <input type="file" id="importInput" accept=".json" class="hidden">
             </div>
-            <div class="flex justify-center gap-3 mt-5">
-                <button id="uploadCloudBtn" class="btn btn-secondary">
-                    <i class="fa fa-cloud-upload mr-2"></i>上传云端
-                </button>
-                <button id="loadCloudBtn" class="btn btn-secondary">
-                    <i class="fa fa-cloud-download mr-2"></i>加载云端
-                </button>
-            </div>
-            
             <div class="text-center">
                 <h1 class="text-[clamp(2rem,5vw,3.5rem)] font-bold text-dark mb-2">
                     <i class="fa fa-film text-primary mr-3"></i>毕塔索的动画参考库
@@ -101,10 +92,16 @@
                 </div>
             </div>
 
-            <!-- 3号区域：上传区域 -->
-            <div>
-                <button id="openUploadModalBtn" class="btn btn-primary w-full h-full text-lg">
-                    <i class="fa fa-plus-circle mr-2"></i>添加新视频
+            <!-- 3号区域：上传与云端操作 -->
+            <div class="grid grid-cols-3 gap-2">
+                <button id="openUploadModalBtn" class="btn btn-primary h-full text-sm px-2">
+                    <i class="fa fa-plus-circle mr-1"></i>添加新视频
+                </button>
+                <button id="uploadCloudBtn" class="btn btn-secondary h-full text-sm px-2">
+                    <i class="fa fa-cloud-upload mr-1"></i>上传云端
+                </button>
+                <button id="loadCloudBtn" class="btn btn-secondary h-full text-sm px-2">
+                    <i class="fa fa-cloud-download mr-1"></i>加载云端
                 </button>
             </div>
         </div>
