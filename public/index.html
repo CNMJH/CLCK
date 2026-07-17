@@ -61,11 +61,17 @@
         <!-- 1号区域：总标题 -->
         <header class="mb-8 relative">
             <!-- 导入导出按钮放到右上角角落 -->
-            <div class="absolute top-0 right-0 flex gap-1">
-                <button id="exportBtn" class="btn btn-secondary text-xs px-2 py-1">
+            <div class="absolute top-0 right-0 flex gap-1 items-center">
+                <button id="uploadCloudBtn" class="btn btn-secondary text-xs px-2 py-1" title="上传云端">
+                    <i class="fa fa-cloud-upload"></i>
+                </button>
+                <button id="loadCloudBtn" class="btn btn-secondary text-xs px-2 py-1" title="加载云端">
+                    <i class="fa fa-cloud-download"></i>
+                </button>
+                <button id="exportBtn" class="btn btn-secondary text-xs px-2 py-1" title="本地下载">
                     <i class="fa fa-download"></i>
                 </button>
-                <label for="importInput" class="btn btn-secondary text-xs px-2 py-1 cursor-pointer">
+                <label for="importInput" class="btn btn-secondary text-xs px-2 py-1 cursor-pointer" title="本地加载">
                     <i class="fa fa-upload"></i>
                 </label>
                 <input type="file" id="importInput" accept=".json" class="hidden">
@@ -92,16 +98,10 @@
                 </div>
             </div>
 
-            <!-- 3号区域：上传与云端操作 -->
-            <div class="grid grid-cols-3 gap-2">
-                <button id="openUploadModalBtn" class="btn btn-primary h-full text-sm px-2">
-                    <i class="fa fa-plus-circle mr-1"></i>添加新视频
-                </button>
-                <button id="uploadCloudBtn" class="btn btn-secondary h-full text-sm px-2">
-                    <i class="fa fa-cloud-upload mr-1"></i>上传云端
-                </button>
-                <button id="loadCloudBtn" class="btn btn-secondary h-full text-sm px-2">
-                    <i class="fa fa-cloud-download mr-1"></i>加载云端
+            <!-- 3号区域：添加新视频 -->
+            <div>
+                <button id="openUploadModalBtn" class="btn btn-primary w-full h-full text-lg">
+                    <i class="fa fa-plus-circle mr-2"></i>添加新视频
                 </button>
             </div>
         </div>
